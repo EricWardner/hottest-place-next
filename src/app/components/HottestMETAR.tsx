@@ -74,7 +74,7 @@ export default async function HottestMETAR() {
       {hottestStation?.temperature ? (
         <div>
           <p className="text-fluid-1">
-            It's {hottestStation.temperature * 9 / 5 + 32}&deg;F in {stations[hottestStation.station].name.en}, {stations[hottestStation.station].region}!
+            It&apos;s {hottestStation.temperature * 9 / 5 + 32}&deg;F in {stations[hottestStation.station].name.en}, {stations[hottestStation.station].region}!
           </p>
           <p className="text-xs">
             (last reading at {hottestStation.issued.toLocaleTimeString('en-US')})
