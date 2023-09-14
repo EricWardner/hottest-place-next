@@ -7,7 +7,7 @@ export async function getHottestMetar() {
 
     // (i.e. 3:20pm => '19')
     const currentUTCHour = new Date().getUTCHours().toLocaleString('en-US', { minimumIntegerDigits: 2 });
-    const url = `http://64.225.60.56:8080/https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
+    const url = `https://sherm.dev/https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
     console.log(url)
     const res = await fetch(url)
     if (!res.ok) {
