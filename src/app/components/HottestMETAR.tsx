@@ -1,11 +1,12 @@
+import dynamic from 'next/dynamic';
 import { parseMetar, IMetarDated } from "metar-taf-parser";
 import { stations } from '../lib/stations'
-import MapMetar from "./MapMETAR";
+
+const MapMetar = dynamic(() => import("./MapMETAR"), {ssr:false});
 
 async function getHottestMETAR(): Promise<IMetarDated | null> {
   // (i.e. 3:20pm => '19')
   const currentUTCHour = new Date().getUTCHours().toLocaleString('en-US', { minimumIntegerDigits: 2 });
-  console.log(currentUTCHour)
   const url = `https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
   console.log(url)
   const res = await fetch(
@@ -24,7 +25,6 @@ async function getHottestMETAR(): Promise<IMetarDated | null> {
 
   splitData.forEach((entry) => {
     let metarEntry = entry.split('\n')
-    // console.log(metarEntry[1])
 
     try {
       let currentStation = parseMetar(metarEntry[1], { issued: new Date(metarEntry[0]) })
@@ -59,8 +59,6 @@ async function getHottestMETAR(): Promise<IMetarDated | null> {
       // Ignore parse error (probably a bad METAR site)
     }
   });
-
-  console.log(currentHottestStation)
 
   return currentHottestStation;
 }
