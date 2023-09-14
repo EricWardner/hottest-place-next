@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import dynamic from 'next/dynamic';
 const MapMETAR = dynamic(() => import("./MapMETAR"), {ssr:false});
-
+const [hottestStation, setHottestStation] = useState<IMetarDated | null>(null);
 
 export default function HottestMETAR() {
   // (i.e. 3:20pm => '19')
@@ -23,7 +23,6 @@ export default function HottestMETAR() {
 
   if (error) return 'An error has occurred: '
   
-  const [hottestStation, setHottestStation] = useState<IMetarDated | null>(null);
   let currentHottestStation: IMetarDated | null = null;
   if (isSuccess) {
 
