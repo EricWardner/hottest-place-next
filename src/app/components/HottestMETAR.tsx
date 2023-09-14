@@ -18,18 +18,19 @@ export default function HottestMETAR() {
 
   if (error) return 'An error has occurred: '
 
-  return (
-    <div className="grid grid-cols-1 gap-32 justify-items-center font-mono">
+  if (isSuccess) {
+    return (
+      <div className="grid grid-cols-1 gap-32 justify-items-center font-mono">
         <div>
           <p className="text-fluid-1">
-            It&apos;s {data.temperature * 9 / 5 + 32}&deg;F in {stations[data.station].name.en}, {stations[data.station].region}!
+            It&apos;s {data.temperature ? (data.temperature * 9 / 5 + 32) : 'unk'}&deg;F in {stations[data.station].name.en}, {stations[data.station].region}!
           </p>
           <p className="text-xs">
             (last reading at {data.issued.toLocaleTimeString('en-US')})
           </p>
         </div>
         <MapMETAR lat={stations[data?.station].location.latitude} long={stations[data?.station].location.longitude} />
-    </div>
-  );
-  
+      </div>
+    );
+  }
 }
