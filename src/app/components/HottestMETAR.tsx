@@ -10,8 +10,7 @@ async function getHottestMETAR(): Promise<IMetarDated | null> {
   const url = `https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
   console.log(url)
   const res = await fetch(
-    url,
-    { cache: 'no-store' }
+    url
   );
 
   let currentHottestStation: IMetarDated | null = null;
