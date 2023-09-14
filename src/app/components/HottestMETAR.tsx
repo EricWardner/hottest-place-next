@@ -6,9 +6,10 @@ import { useQuery } from '@tanstack/react-query'
 
 import dynamic from 'next/dynamic';
 const MapMETAR = dynamic(() => import("./MapMETAR"), {ssr:false});
-const [hottestStation, setHottestStation] = useState<IMetarDated | null>(null);
 
 export default function HottestMETAR() {
+  const [hottestStation, setHottestStation] = useState<IMetarDated | null>(null);
+
   // (i.e. 3:20pm => '19')
   const currentUTCHour = new Date().getUTCHours().toLocaleString('en-US', { minimumIntegerDigits: 2 });
   const url = `https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
