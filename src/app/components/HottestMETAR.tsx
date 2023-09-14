@@ -67,7 +67,6 @@ export default async function HottestMETAR() {
   const hottestStation = await getHottestMETAR();
 
   return (
-    // <div className="max-w-5xl w-full items-center justify-between font-mono lg:flex">
     <div className="grid grid-cols-1 gap-32 justify-items-center font-mono">
       {hottestStation?.temperature ? (
         <div>
