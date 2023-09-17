@@ -11,8 +11,6 @@ const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false })
 export default function Home() {
   const [hottestMetarStation, setHottestMetarStation] = useState<IMetarDated>();
 
-
-
   useEffect(() => {
     // fetch data
     const fetchData = async () => {
