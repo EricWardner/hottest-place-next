@@ -4,10 +4,9 @@ import { stations } from '../lib/stations'
 import Loading from './loading';
 import StationData from '../components/StationData';
 import { IMetarDated } from 'metar-taf-parser';
-import MapMETAR from '../components/MapMETAR';
 
-// import dynamic from 'next/dynamic';
-// const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false });
+import dynamic from 'next/dynamic';
+const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false });
 
 export default function Home() {
   const [hottestMetarStation, setHottestMetarStation] = useState<IMetarDated>();
