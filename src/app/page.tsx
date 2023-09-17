@@ -1,24 +1,42 @@
-import { Suspense } from 'react';
+'use client'
+import { useEffect, useState } from 'react';
 import { stations } from '../lib/stations'
 import Loading from './loading';
-import { getHottestMetar } from '../lib/queries';
 import StationData from '../components/StationData';
+import { IMetarDated } from 'metar-taf-parser';
+import MapMETAR from '../components/MapMETAR';
 
-import dynamic from 'next/dynamic';
-const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false });
+// import dynamic from 'next/dynamic';
+// const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false });
 
-export default async function Home() {
+export default function Home() {
+  const [hottestMetarStation, setHottestMetarStation] = useState<IMetarDated>();
 
-  const hottestMetarStation = await getHottestMetar();
 
-  return (
-    <>
-      <Suspense fallback={<Loading />}>
+
+  useEffect(() => {
+    // fetch data
+    const fetchData = async () => {
+      const data = await (
+        await fetch('/api/hottest-station')
+      ).json()
+
+      setHottestMetarStation(data.body)
+    };
+
+    fetchData();
+  }, []);
+
+  if (hottestMetarStation) {
+    return (
+      <>
         <StationData station={hottestMetarStation} />
-      </Suspense>
+        <MapMETAR lat={stations[hottestMetarStation?.station].location.latitude}
+          long={stations[hottestMetarStation?.station].location.longitude} />
+      </>
+    )
+  } else {
+    return (<Loading />)
+  }
 
-      <MapMETAR lat={stations[hottestMetarStation?.station].location.latitude}
-        long={stations[hottestMetarStation?.station].location.longitude} />
-    </>
-  );
 }

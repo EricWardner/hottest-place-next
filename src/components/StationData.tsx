@@ -1,3 +1,4 @@
+'use client'
 import { IMetarDated } from "metar-taf-parser";
 import { stations } from '../lib/stations'
 
@@ -10,7 +11,7 @@ export default function StationData({station}:props) {
           It&apos;s {station.temperature ? (station.temperature * 9 / 5 + 32) : 'unk'}&deg;F in {stations[station.station].name.en}, {stations[station.station].region}!
         </p>
         <p className="text-xs">
-          (last reading at {station.issued.toLocaleTimeString('en-US')})
+          (last reading at {station.issued.toLocaleString()})
         </p>
       </div>      
   );
