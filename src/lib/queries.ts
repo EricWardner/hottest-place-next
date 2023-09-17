@@ -1,5 +1,5 @@
 import { parseMetar, IMetarDated } from "metar-taf-parser";
-import { stations } from '../lib/stations'
+import { stations } from './stations'
 
 
 export async function getHottestMetar() {
@@ -7,13 +7,13 @@ export async function getHottestMetar() {
 
     // (i.e. 3:20pm => '19')
     const currentUTCHour = new Date().getUTCHours().toLocaleString('en-US', { minimumIntegerDigits: 2 });
-    const url = `https://sherm.dev/https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
+    // const url = `https://sherm.dev/https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
+    const url = `https://tgftp.nws.noaa.gov/data/observations/metar/cycles/${currentUTCHour}Z.TXT`
     console.log(url)
-    const res = await fetch(url)
+    const res = await fetch(url, { next: { revalidate: 600 } })
     if (!res.ok) {
         throw new Error('Error fetching data')
     }
-
     const data = await res.text()
     const splitData = data.split('\n\n');
 

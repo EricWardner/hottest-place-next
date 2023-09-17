@@ -1,18 +1,24 @@
-'use client'
-import HottestMETAR from './components/HottestMETAR';
-import {
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query'
+import { Suspense } from 'react';
+import { stations } from '../lib/stations'
+import Loading from './loading';
+import { getHottestMetar } from '../lib/queries';
+import StationData from '../components/StationData';
 
-const queryClient = new QueryClient()
+import dynamic from 'next/dynamic';
+const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false });
 
-export default function Home() {
+export default async function Home() {
+
+  const hottestMetarStation = await getHottestMetar();
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-32">
-      <QueryClientProvider client={queryClient}>
-        <HottestMETAR />
-      </QueryClientProvider>
-    </main>
+    <>
+      <Suspense fallback={<Loading />}>
+        <StationData station={hottestMetarStation} />
+      </Suspense>
+
+      <MapMETAR lat={stations[hottestMetarStation?.station].location.latitude}
+        long={stations[hottestMetarStation?.station].location.longitude} />
+    </>
   );
 }

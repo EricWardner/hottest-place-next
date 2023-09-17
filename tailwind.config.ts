@@ -17,6 +17,9 @@ const config: Config = {
       fontSize: {
         'fluid-1': 'clamp(1rem, 4cqi, 3rem)',
         'fluid-2': 'clamp(1rem, 5cqi, 6rem)',
+      },
+      animation: {
+        'spin-slow': 'spin 3s linear infinite',
       }
     },
   },
