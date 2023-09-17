@@ -1,3 +1,5 @@
+export const runtime = 'edge'; // 'nodejs' is the default
+export const preferredRegion = 'iad1'; // only execute this function on iad1
 import { parseMetar, IMetarDated } from "metar-taf-parser";
 import { stations } from './stations'
 
