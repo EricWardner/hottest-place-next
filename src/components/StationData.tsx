@@ -1,9 +1,10 @@
 'use client'
 import { IMetarDated } from "metar-taf-parser";
 import { stations } from '../lib/stations'
+import { StationInfo } from '../lib/queries';
 
 
-type props = {station: IMetarDated}
+type props = {station: StationInfo}
 export default function StationData({station}:props) {
   return (
       <div>
