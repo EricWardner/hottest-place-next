@@ -6,18 +6,18 @@ One day it was really hot out and I wanted to know if it could possibly be hotte
 country. I tried to google it but there weren't any good results! Then I went down the weather data API
 rabbit hole... Here's my attempt
 
----
+
 **Might be deployed here at any given time...**
+
 https://hottest-place-next.vercel.app/
----
+
 
 
 ## How does it work?
-So this current iteration works by grabbing the NOAA hourly `METAR` data set located here
-`https://tgftp.nws.noaa.gov/data/observations/metar/cycles/`
+So this current iteration works by grabbing the NOAA hourly `METAR` data set located here `https://tgftp.nws.noaa.gov/data/observations/metar/cycles/`
 
 
-### METAR "METeorological Aerodrome Reports"
+#### METAR "METeorological Aerodrome Reports"
 https://en.wikipedia.org/wiki/METAR
 
 
@@ -28,7 +28,13 @@ I'm not sure, there's a lot.
 
 
 
+
+
+
+
 ---
+
 This page was made possible due to the data made available through the National Oceanic and Atmospheric Administration
+
 ---
 
