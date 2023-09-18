@@ -1,9 +1,9 @@
-import { getHottestMetar } from '../../../lib/queries';
+import { getHottestMadis } from '../../../lib/queries';
 
 export const runtime = 'edge'; // 'nodejs' is the default
 
 export async function GET() {
-    const hottest_metar = await getHottestMetar()
+    const hottest_metar = await getHottestMadis()
 
     const response = Response.json(hottest_metar, {
             status: 200,

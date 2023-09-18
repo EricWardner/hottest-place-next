@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react';
-import { stations } from '../lib/stations'
+// import { stations } from '../lib/stations'
+import { stations } from '../lib/converted'
 import Loading from './loading';
 import StationData from '../components/StationData';
 import { StationInfo, stationSchema } from '../lib/queries';

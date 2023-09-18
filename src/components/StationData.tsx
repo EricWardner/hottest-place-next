@@ -1,6 +1,6 @@
 'use client'
-import { IMetarDated } from "metar-taf-parser";
-import { stations } from '../lib/stations'
+// import { stations } from '../lib/stations'
+import { stations } from '../lib/converted'
 import { StationInfo } from '../lib/queries';
 
 
