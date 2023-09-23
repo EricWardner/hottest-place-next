@@ -1,4 +1,3 @@
-'use client'
 export default function Loading() {
     return (
         <div className="grid grid-cols-1 gap-32 justify-items-center font-mono">

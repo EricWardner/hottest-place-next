@@ -10,12 +10,15 @@ const MapMETAR = dynamic(() => import("@/components/MapMETAR"), { ssr: false });
 export default function Home() {
   const [hottestMetarStation, setHottestMetarStation] = useState<StationInfo>();
 
+  const [error, setError] = useState(null);
+  if (error) {throw error}
+
   useEffect(() => {
     // fetch data
     const fetchData = async () => {
       const data = await (
         await fetch('/api/hottest-madis-station')
-      ).json()
+      ).json().catch(err => setError(err))
 
       stationSchema.parse(data)
       setHottestMetarStation(data)

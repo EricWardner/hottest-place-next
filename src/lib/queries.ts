@@ -103,19 +103,24 @@ export async function getHottestMadis(): Promise<StationInfo> {
 
     let weatherData = resData.split('\n')
     weatherData = weatherData.slice(9)
-    weatherData[0] = weatherData[0].replace("<h3><PRE>",'')
+    weatherData[0] = weatherData[0].replace("<h3><PRE>", '')
     weatherData.pop()
     weatherData.pop()
     weatherData.pop()
 
-    let hottestStation: StationInfo = {station: "INIT", temperature:Number.MIN_SAFE_INTEGER, issued:"INIT"};
+    if (weatherData[0].includes("No matching data found.")) {
+        throw new Error('Error no data found');
+    }
+
+    let hottestStation: StationInfo = { station: "INIT", temperature: Number.MIN_SAFE_INTEGER, issued: "INIT" };
+
     for (const line of weatherData) {
         const entry = line.split(',')
 
         const date_str = `${entry[1]} ${entry[2]}Z`
         const dt = new Date(date_str)
         const time_val = dt.toISOString()
-        
+
         const currentStation = {
             station: entry[0].trim(),
             temperature: parseFloat(entry[5]) - 273.15,
@@ -138,3 +143,4 @@ export async function getHottestMadis(): Promise<StationInfo> {
         "name": rows[0].name
     }
 }
+
