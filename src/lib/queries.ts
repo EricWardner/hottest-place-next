@@ -1,13 +1,17 @@
 import { parseMetar, IMetarDated } from "metar-taf-parser";
-// import { stations } from './stations'
-import { stations } from './converted'
+import { stations } from './stations'
 import { z } from "zod"
+import { sql } from '@vercel/postgres';
+
 
 
 export const stationSchema = z.object({
     "station": z.string(),
     "issued": z.string(),
     "temperature": z.number(),
+    "lat": z.number().optional(),
+    "long": z.number().optional(),
+    "name": z.string().optional()
 })
 export type StationInfo = z.infer<typeof stationSchema>
 
@@ -30,7 +34,9 @@ export async function getHottestMetar() {
         try {
             let currentStation = parseMetar(metarEntry[1], { issued: new Date(metarEntry[0]) })
             if (currentStation.temperature) {
+
                 if (stations[currentStation.station].country === 'US' && currentStation.station !== "KIMM") {
+
                     hottestStation = hottestStation ?? currentStation;
 
                     if (hottestStation.temperature &&
@@ -45,10 +51,16 @@ export async function getHottestMetar() {
     }
 
     if (hottestStation?.temperature) {
+        // ID, Lat, Long, Elevation, Name
+        const { rows, fields } = await sql`SELECT * FROM stations WHERE Id = ${hottestStation.station}`;
+
         return {
             "station": hottestStation.station,
             "issued": hottestStation.issued,
-            "temperature": hottestStation.temperature
+            "temperature": hottestStation.temperature,
+            "lat": rows[0].lat,
+            "long": rows[0].long,
+            "name": rows[0].name
         }
     }
     else {
@@ -56,7 +68,7 @@ export async function getHottestMetar() {
     }
 }
 
-export async function getHottestMadis() {
+export async function getHottestMadis(): Promise<StationInfo> {
     const url = `https://madis-data.ncep.noaa.gov/madisPublic1/cgi-bin/madisXmlPublicDir?
     rdr=&time=0&minbck=-59&minfwd=0&recwin=3&dfltrsel=1&state=AK
     &latll=24.7433195&lonll=-124.7844079&latur=49.3457868&lonur=-66.9513812
@@ -96,8 +108,7 @@ export async function getHottestMadis() {
     weatherData.pop()
     weatherData.pop()
 
-    let hottestTemp = 0
-    let hottestStation = null
+    let hottestStation: StationInfo = {station: "INIT", temperature:Number.MIN_SAFE_INTEGER, issued:"INIT"};
     for (const line of weatherData) {
         const entry = line.split(',')
 
@@ -111,15 +122,19 @@ export async function getHottestMadis() {
             issued: time_val
         }
 
-        if (currentStation.temperature > hottestTemp) {
-            hottestTemp = currentStation.temperature;
+        if (currentStation.temperature > hottestStation.temperature) {
             hottestStation = currentStation;
         }
     }
 
+    const { rows, fields } = await sql`SELECT * FROM stations WHERE ID=${hottestStation.station}`;
+
     return {
         "station": hottestStation.station,
         "issued": hottestStation.issued,
-        "temperature": hottestStation.temperature
+        "temperature": hottestStation.temperature,
+        "lat": rows[0].lat,
+        "long": rows[0].long,
+        "name": rows[0].name
     }
 }

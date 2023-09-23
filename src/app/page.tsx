@@ -1,13 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react';
-// import { stations } from '../lib/stations'
-import { stations } from '../lib/converted'
+// import { stations } from '@/lib/stations'
+// import { stations } from '@/lib/converted'
 import Loading from './loading';
 import StationData from '../components/StationData';
 import { StationInfo, stationSchema } from '../lib/queries';
 
 import dynamic from 'next/dynamic';
-const MapMETAR = dynamic(() => import("../components/MapMETAR"), { ssr: false });
+const MapMETAR = dynamic(() => import("@/components/MapMETAR"), { ssr: false });
 
 export default function Home() {
   const [hottestMetarStation, setHottestMetarStation] = useState<StationInfo>();
@@ -16,7 +16,7 @@ export default function Home() {
     // fetch data
     const fetchData = async () => {
       const data = await (
-        await fetch('/api/hottest-station')
+        await fetch('/api/hottest-metar-station')
       ).json()
 
       stationSchema.parse(data)
@@ -31,8 +31,8 @@ export default function Home() {
       {hottestMetarStation ? (
         <>
           <StationData station={hottestMetarStation} />
-          <MapMETAR lat={stations[hottestMetarStation.station].location.latitude}
-            long={stations[hottestMetarStation.station].location.longitude} />
+          <MapMETAR lat={hottestMetarStation.lat}
+            long={hottestMetarStation.long} />
         </>
       ) : (
         <Loading />
