@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { Inter } from 'next/font/google'
+import { COLD_HASH } from '../lib/types'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -10,10 +11,10 @@ export const metadata: Metadata = {
   description: 'Where is the hottest (or coldest) place in the US right now?',
 }
 
-// Runs while the HTML is parsed, before first paint: a shared #coldest link gets the
-// cold styling immediately instead of flashing the server-rendered hot view.
-// ModeToggle keeps data-mode in sync after hydration.
-const MODE_SCRIPT = `if(location.hash==="#coldest")document.documentElement.setAttribute("data-mode","cold")`
+// Runs while the HTML is parsed, before first paint: a shared #coldest link shows
+// the cold view (both are server-rendered; globals.css picks one) instead of
+// flashing the hot one. ModeToggle keeps data-mode in sync after hydration.
+const MODE_SCRIPT = `if(location.hash===${JSON.stringify(COLD_HASH)})document.documentElement.setAttribute("data-mode","cold")`
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

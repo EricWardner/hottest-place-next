@@ -16,10 +16,13 @@ export const revalidate = 300
 export const maxDuration = 60
 
 export default async function Home() {
-  // At runtime any source failure throws, so ISR keeps serving the last good page
-  // (stale but right beats fresh but wrong). At build time there is no last good
-  // page and a NOAA hiccup shouldn't fail the deploy, so accept a degraded answer,
-  // or a placeholder if there's no data at all; the first regeneration replaces it.
+  // At runtime, losing the lower-48 data throws, so ISR keeps serving the last good
+  // page (stale but right beats fresh but wrong). Smaller gaps still render: a
+  // Hawaii outage drops Hawaii with a note, an NWS failure shows coordinates, and
+  // a spot no thermometer backs is labeled as an estimate (see findExtremes).
+  // At build time there is no last good page and a NOAA hiccup shouldn't fail the
+  // deploy, so accept a degraded answer, or a placeholder if there's no data at
+  // all; the first regeneration replaces it.
   const atBuild = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD
   let data: Extremes
   try {
@@ -37,8 +40,16 @@ export default async function Home() {
   // Both views are rendered here so the toggle switches instantly from the cached page.
   const view = (mode: Mode) => ({
     info: <ExtremeInfo mode={mode} extreme={data[mode]} unavailable={data.unavailable} />,
-    // keyed so Leaflet remounts on toggle; it ignores center/bounds changes after mount
-    map: <HotspotMap key={mode} mode={mode} spot={data[mode].spot} station={data[mode].station} />,
+    // Leaflet ignores center/bounds changes after mount, so remount whenever the
+    // view should move: on toggle, and when a refresh brings a different spot.
+    map: (
+      <HotspotMap
+        key={[mode, data[mode].spot.lat, data[mode].spot.lon, data[mode].station?.id].join(':')}
+        mode={mode}
+        spot={data[mode].spot}
+        station={data[mode].station}
+      />
+    ),
   })
 
   return (

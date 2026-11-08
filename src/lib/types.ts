@@ -6,6 +6,12 @@ export type Mode = 'hot' | 'cold'
 /** +1 when looking for heat, -1 for cold, so "more extreme" is always "larger sign * value". */
 export const SIGN: Record<Mode, number> = { hot: 1, cold: -1 }
 
+/** True if temperature `a` is more extreme than `b`: hotter in hot mode, colder in cold mode. */
+export const moreExtreme = (mode: Mode, a: number, b: number) => SIGN[mode] * a > SIGN[mode] * b
+
+/** URL hash for cold mode. Shared by ModeToggle and the pre-paint script in layout.tsx. */
+export const COLD_HASH = '#coldest'
+
 type Point = { lat: number; lon: number; tempF: number }
 
 /** The hottest or coldest place, with the evidence behind it. */

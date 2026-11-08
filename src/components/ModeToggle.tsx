@@ -1,10 +1,14 @@
 'use client'
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
-import type { Mode } from '../lib/types'
+import { COLD_HASH, type Mode } from '../lib/types'
 
 // The mode lives in the URL hash (#coldest) so links are shareable. Using the
 // hash rather than a query param keeps the page fully static for ISR.
-const COLD_HASH = '#coldest'
+//
+// What's visible is decided by CSS on <html data-mode> (see globals.css), not by
+// React state: the inline script in layout.tsx sets that attribute before first
+// paint, so a #coldest link shows the right view and button immediately, even
+// before (or without) hydration. React state only picks which map to mount.
 const listeners = new Set<() => void>()
 
 function subscribe(onChange: () => void) {
@@ -18,6 +22,8 @@ function subscribe(onChange: () => void) {
 const getMode = (): Mode => (window.location.hash === COLD_HASH ? 'cold' : 'hot')
 
 function setMode(mode: Mode) {
+  // set the attribute before React re-renders so the text and map switch together
+  document.documentElement.dataset.mode = mode
   const url = mode === 'cold' ? COLD_HASH : window.location.pathname + window.location.search
   window.history.replaceState(null, '', url)
   listeners.forEach((l) => l())
@@ -34,12 +40,11 @@ type View = { info: ReactNode; map: ReactNode }
 export default function ModeToggle({ hot, cold }: { hot: View; cold: View }) {
   const mode = useSyncExternalStore(subscribe, getMode, () => 'hot' as Mode)
 
-  // the page background lives on <body>; globals.css switches it on this attribute
+  // keeps the attribute in sync for hash changes made outside setMode (e.g. back/forward)
   useEffect(() => {
     document.documentElement.dataset.mode = mode
   }, [mode])
 
-  const view = mode === 'hot' ? hot : cold
   return (
     <>
       <div className="grid gap-6">
@@ -48,20 +53,21 @@ export default function ModeToggle({ hot, cold }: { hot: View; cold: View }) {
             <button
               key={o.mode}
               type="button"
+              data-mode-button={o.mode}
               aria-pressed={mode === o.mode}
               onClick={() => setMode(o.mode)}
-              className={`rounded-full border border-black px-4 py-1 text-sm ${
-                mode === o.mode ? 'bg-black text-white' : 'bg-white/40 hover:bg-white/70'
-              }`}
+              className="rounded-full border border-black px-4 py-1 text-sm"
             >
               {o.label}
             </button>
           ))}
         </div>
-        {/* data-view lets globals.css hide the hot view on #coldest links until hydration */}
-        <div data-view={mode}>{view.info}</div>
+        {/* both rendered on the server; globals.css shows the one matching data-mode */}
+        <div data-view="hot">{hot.info}</div>
+        <div data-view="cold">{cold.info}</div>
       </div>
-      <div data-view={mode}>{view.map}</div>
+      {/* maps are client-only, so mount just the active one */}
+      {mode === 'hot' ? hot.map : cold.map}
     </>
   )
 }

@@ -10,12 +10,29 @@ body {
   background: radial-gradient(#c71784, #eee8aa);
 }
 
-/* set by the inline script in layout.tsx before first paint, then by ModeToggle */
+/*
+ * The mode lives on <html data-mode>: set by the inline script in layout.tsx
+ * before first paint, then by ModeToggle. No attribute means hot.
+ */
 html[data-mode='cold'] body {
   background: radial-gradient(#60a5fa, #e0f2fe);
 }
 
-/* #coldest links: the server renders the hot view; keep it hidden until hydration swaps in the cold one */
+/* Both views are rendered on the server; show the one matching the mode. */
+html:not([data-mode='cold']) [data-view='cold'],
 html[data-mode='cold'] [data-view='hot'] {
-  visibility: hidden;
+  display: none;
+}
+
+/* Toggle buttons: the pressed look follows the mode too, so it's right before hydration. */
+[data-mode-button] {
+  background: rgb(255 255 255 / 0.4);
+}
+[data-mode-button]:hover {
+  background: rgb(255 255 255 / 0.7);
+}
+html:not([data-mode='cold']) [data-mode-button='hot'],
+html[data-mode='cold'] [data-mode-button='cold'] {
+  background: black;
+  color: white;
 }

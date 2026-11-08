@@ -10,11 +10,12 @@
 //  4. The NWS points API names the nearest place.
 //
 // Alaska is deliberately left out: it would be the coldest place nearly every day.
+import { errorMessage } from './errors'
 import { fetchMadisTemps, type Box, type MadisBudget, type MadisOb } from './madis'
 import { nearestPlace } from './nws'
 import type { RegionName } from './rtma/grids'
-import { fetchLatestAnalysis, type RawExtreme, type RtmaAnalysis } from './rtma/rtma'
-import { SIGN, type Extreme, type Extremes, type Mode } from './types'
+import { fetchLatestAnalysis, type RtmaAnalysis } from './rtma/rtma'
+import { moreExtreme, SIGN, type Extreme, type Extremes, type Mode } from './types'
 
 /** Max disagreement between a station and the analysis at its own grid cell. */
 const AGREEMENT_K = 1.5
@@ -35,7 +36,11 @@ const MADIS_MIN_OBS: Record<RegionName, number> = { conus: 1000, hawaii: 10 }
  * worst case) runs alongside MADIS (42 s), then the NWS lookups (6 s) run in
  * parallel, so the worst case is ~50 s. See maxDuration in src/app/page.tsx.
  */
-const MADIS_BUDGET: MadisBudget = { totalMs: 42_000, firstAttemptMs: 28_000, minRetryMs: 10_000 }
+const MADIS_BUDGET: Record<RegionName, MadisBudget> = {
+  conus: { totalMs: 42_000, minRetryMs: 10_000 },
+  // optional, so capped lower: a struggling Hawaii shouldn't hold up every refresh
+  hawaii: { totalMs: 25_000, minRetryMs: 8_000 },
+}
 const NWS_TIMEOUT_MS = 6_000
 
 const REGIONS: RegionName[] = ['conus', 'hawaii']
@@ -58,10 +63,11 @@ const toF = (k: number) => Math.round(((k - 273.15) * 9) / 5 * 10 + 320) / 10
 const kmToMi = (km: number) => Math.round(km * 0.621371 * 10) / 10
 
 /**
- * A region whose RTMA or MADIS fetch fails is left out of the result. With
- * `strict` (runtime), losing a required region throws instead: ISR then keeps
- * serving the last good page and retries, since a Hawaii-only "hottest place
- * in the US" would be fresh but wrong. NWS failures only cost the place name.
+ * Normally a region needs both RTMA and MADIS; one missing either is left out
+ * (noted on the page). With `strict` (runtime), losing a required region
+ * throws instead: ISR then keeps serving the last good page and retries, since
+ * a Hawaii-only "hottest place in the US" would be fresh but wrong. NWS
+ * failures only cost the place name.
  */
 export async function findExtremes(now = new Date(), { strict = true } = {}): Promise<Extremes> {
   const warnings: string[] = []
@@ -69,36 +75,50 @@ export async function findExtremes(now = new Date(), { strict = true } = {}): Pr
   // RTMA and MADIS are independent; fetch everything at once.
   const [analyses, madis] = await Promise.all([
     Promise.allSettled(REGIONS.map((r) => fetchLatestAnalysis(r, now))),
-    Promise.allSettled(REGIONS.map((r) => fetchMadisTemps(MADIS_BOXES[r], MADIS_BUDGET, MADIS_MIN_OBS[r]))),
+    Promise.allSettled(REGIONS.map((r) => fetchMadisTemps(MADIS_BOXES[r], MADIS_BUDGET[r], MADIS_MIN_OBS[r]))),
   ])
+  const rtma: Partial<Record<RegionName, RtmaAnalysis>> = {}
+  const stations: Partial<Record<RegionName, MadisOb[]>> = {}
+  REGIONS.forEach((region, k) => {
+    const a = analyses[k]
+    const m = madis[k]
+    if (a.status === 'fulfilled') rtma[region] = a.value
+    else warnings.push(`RTMA ${region}: ${errorMessage(a.reason)}`)
+    if (m.status === 'fulfilled') stations[region] = m.value
+    else warnings.push(`MADIS ${region}: ${errorMessage(m.reason)}`)
+  })
+
+  const requiredMissing = REQUIRED_REGIONS.filter((r) => !rtma[r] || !stations[r])
+  if (strict && requiredMissing.length) {
+    throw new Error(`Data unavailable for ${requiredMissing.join(', ')}: ${warnings.join('; ')}`)
+  }
+  // Build-time fallback: if a required region has RTMA but no stations, dropping
+  // it would make e.g. Hawaii "the coldest place in the US". Show unconfirmed RTMA
+  // extremes for every region instead.
+  const unconfirmed = requiredMissing.some((r) => rtma[r] && !stations[r])
 
   const available: RtmaAnalysis[] = []
   const unavailable: RegionName[] = []
   const best: Record<Mode, Candidate | null> = { hot: null, cold: null }
   let stationsUsed = 0
-  REGIONS.forEach((region, k) => {
-    const a = analyses[k]
-    const m = madis[k]
-    if (a.status === 'rejected') warnings.push(`RTMA ${region}: ${errorMessage(a.reason)}`)
-    if (m.status === 'rejected') warnings.push(`MADIS ${region}: ${errorMessage(m.reason)}`)
-    if (a.status === 'rejected' || m.status === 'rejected') {
+  for (const region of REGIONS) {
+    const analysis = rtma[region]
+    const obs = stations[region]
+    if (!analysis || (!obs && !unconfirmed)) {
       unavailable.push(region)
-      return
+      continue
     }
-    available.push(a.value)
-    const result = supportedExtremes(a.value, m.value)
+    available.push(analysis)
+    if (unconfirmed || !obs) continue
+    const result = supportedExtremes(analysis, obs)
     stationsUsed += result.stationsUsed
     for (const mode of ['hot', 'cold'] as const) {
       const c = result[mode]
       const b = best[mode]
-      if (c && (!b || SIGN[mode] * c.tempK > SIGN[mode] * b.tempK)) best[mode] = c
+      if (c && (!b || moreExtreme(mode, c.tempK, b.tempK))) best[mode] = c
     }
-  })
-
-  const missingRequired = unavailable.filter((r) => REQUIRED_REGIONS.includes(r))
-  if ((strict && missingRequired.length) || available.length === 0) {
-    throw new Error(`Data unavailable for ${unavailable.join(', ')}: ${warnings.join('; ')}`)
   }
+  if (available.length === 0) throw new Error(`No data available: ${warnings.join('; ')}`)
 
   const [hot, cold] = await Promise.all(
     (['hot', 'cold'] as const).map((mode) => describe(mode, best[mode], available, warnings)),
@@ -115,10 +135,8 @@ async function describe(
   available: RtmaAnalysis[],
   warnings: string[],
 ): Promise<Extreme> {
-  const s = SIGN[mode]
-  const rawOf = (a: RtmaAnalysis): RawExtreme => (mode === 'hot' ? a.hottest : a.coldest)
-  const rawAnalysis = available.reduce((a, b) => (s * rawOf(b).tempK > s * rawOf(a).tempK ? b : a))
-  const raw = rawOf(rawAnalysis)
+  const rawAnalysis = available.reduce((a, b) => (moreExtreme(mode, b.raw[mode].tempK, a.raw[mode].tempK) ? b : a))
+  const raw = rawAnalysis.raw[mode]
   if (!winner) warnings.push(`No thermometer could back up a ${mode} spot; showing the raw RTMA extreme`)
   const analysis = winner?.analysis ?? rawAnalysis
   const spot = winner ?? raw
@@ -191,12 +209,11 @@ export function supportedExtremes(
         stationCounted = true
         const t = analysis.valueAt(i, j)
         for (const mode of ['hot', 'cold'] as const) {
-          const s = SIGN[mode]
           // the cell may be at most SUPPORT_K more extreme than the station
-          if (s * t > s * ob.tempK + SUPPORT_K) continue
+          if (moreExtreme(mode, t, ob.tempK + SIGN[mode] * SUPPORT_K)) continue
           const b = best[mode]
           // ties go to the more extreme station
-          if (b && (s * t < s * b.tempK || (t === b.tempK && s * ob.tempK <= s * b.station.tempK))) continue
+          if (b && (moreExtreme(mode, b.tempK, t) || (t === b.tempK && !moreExtreme(mode, ob.tempK, b.station.tempK)))) continue
           const [lat, lon] = analysis.toLatLon(i, j)
           best[mode] = { analysis, lat, lon, tempK: t, station: { ...ob, km: distanceKm(lat, lon, ob.lat, ob.lon), analysisK } }
         }
@@ -220,5 +237,3 @@ const POINTS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'S
 const compass = (deg: number) => POINTS[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16]
 
 const round = (x: number, digits: number) => Math.round(x * 10 ** digits) / 10 ** digits
-
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e))

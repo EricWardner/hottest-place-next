@@ -1,5 +1,7 @@
 // QC-filtered surface temperatures from NOAA MADIS (public tier, no login).
 // https://madis-data.ncep.noaa.gov/public/sfcdumpguest.html
+import { errorMessage } from './errors'
+
 const ENDPOINT = 'https://madis-data.ncep.noaa.gov/madisPublic1/cgi-bin/madisXmlPublicDir'
 
 export type MadisOb = {
@@ -14,19 +16,20 @@ export type MadisOb = {
 export type Box = { south: number; west: number; north: number; east: number }
 
 export type MadisBudget = {
-  /** hard cap for the whole call, retry included */
+  /** hard cap for the whole call, retry included; the first attempt may use all of it */
   totalMs: number
-  /** cap for the first attempt, so a slow first reply leaves room for a retry */
-  firstAttemptMs: number
-  /** don't bother retrying with less time than this left */
+  /** only retry with at least this much time left (fast failures, e.g. a cached bad table) */
   minRetryMs: number
 }
+
+/** An HTTP 4xx won't fix itself on retry (e.g. a parameter MADIS stopped accepting). */
+class PermanentError extends Error {}
 
 /**
  * Latest temperature per station in the past hour, passing all MADIS QC checks.
  * Treats fewer than `minObs` rows as a failure: MADIS sometimes briefly serves an
- * empty or partial table that otherwise looks valid. Any failure is retried once
- * if the budget allows.
+ * empty or partial table that otherwise looks valid. Transient failures are
+ * retried once if the budget allows.
  */
 export async function fetchMadisTemps(box: Box, budget: MadisBudget, minObs = 1): Promise<MadisOb[]> {
   const deadline = Date.now() + budget.totalMs
@@ -54,6 +57,7 @@ export async function fetchMadisTemps(box: Box, budget: MadisBudget, minObs = 1)
   })
   const attempt = async (timeoutMs: number) => {
     const res = await fetch(`${ENDPOINT}?${params}`, { signal: AbortSignal.timeout(timeoutMs) })
+    if (res.status >= 400 && res.status < 500) throw new PermanentError(`MADIS HTTP ${res.status}`)
     if (!res.ok) throw new Error(`MADIS HTTP ${res.status}`)
     const text = await res.text()
     if (!/var T\s+total stns/.test(text)) throw new Error('MADIS response had no data table')
@@ -63,11 +67,13 @@ export async function fetchMadisTemps(box: Box, budget: MadisBudget, minObs = 1)
   }
 
   try {
-    return await attempt(Math.min(budget.firstAttemptMs, budget.totalMs))
+    // A slow but good reply is the common case, so the first attempt gets the whole budget.
+    return await attempt(budget.totalMs)
   } catch (first) {
-    // Bad replies and timeouts are usually transient. MADIS caches replies by URL
-    // for 60 s, bad ones included, so the retry adds a throwaway parameter
-    // (verified harmless) to force a fresh query.
+    if (first instanceof PermanentError) throw first
+    // Bad replies (often instant, from MADIS's cache) and errors are usually
+    // transient. MADIS caches replies by URL for 60 s, bad ones included, so the
+    // retry adds a throwaway parameter (verified harmless) to force a fresh query.
     await new Promise((r) => setTimeout(r, 1_000))
     const left = deadline - Date.now()
     if (left < budget.minRetryMs) throw first
@@ -79,8 +85,6 @@ export async function fetchMadisTemps(box: Box, budget: MadisBudget, minObs = 1)
     }
   }
 }
-
-const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 // e.g. "  V-T       KSNS         26.00  36.67000 -121.6000    0.000    0.000 20261108_1521 ASOS          280.950012 V 107   0"
 const LINE = /^\s*V-T\s+(\S+)\s+\S+\s+(-?[\d.]+)\s+(-?[\d.]+)\s+\S+\s+\S+\s+(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})\s+(\S+)\s+(-?[\d.]+)\s+(\S)\s/

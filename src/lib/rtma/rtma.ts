@@ -1,9 +1,10 @@
 // Fetches the newest RTMA 2 m temperature analysis from NOAA's AWS mirror
-// and finds its hottest US land cell.
+// and finds its hottest and coldest US land cells.
 import { decodeGrib2, type GribField } from './grib2'
 import { GRIDS, sameGrid, type RegionName } from './grids'
 import { landRuns, isLand } from './landmask'
 import { makeProjection } from './projection'
+import type { Mode } from '../types'
 
 const BUCKET = 'https://noaa-rtma-pds.s3.amazonaws.com'
 
@@ -33,9 +34,8 @@ export type RtmaAnalysis = {
   region: RegionName
   source: string
   field: GribField
-  /** hottest and coldest US land cells, with no other checks */
-  hottest: RawExtreme
-  coldest: RawExtreme
+  /** hottest (`raw.hot`) and coldest (`raw.cold`) US land cells, with no other checks */
+  raw: Record<Mode, RawExtreme>
   toLatLon(i: number, j: number): [number, number]
   /** grid cell nearest to (lat, lon), or null outside the grid */
   cellAt(lat: number, lon: number): [number, number] | null
@@ -111,8 +111,7 @@ export async function fetchLatestAnalysis(region: RegionName, now = new Date()):
     region,
     source: product.label,
     field,
-    hottest: rawExtreme(hot),
-    coldest: rawExtreme(cold),
+    raw: { hot: rawExtreme(hot), cold: rawExtreme(cold) },
     toLatLon: proj.toLatLon,
     cellAt(la, lo) {
       const [fi, fj] = proj.toGrid(la, lo)
