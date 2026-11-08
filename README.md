@@ -14,8 +14,9 @@ https://hottest-place-next.vercel.app/
 
 
 ## How does it work?
-The home page (`src/app/page.tsx`) is rendered on the server from `src/lib/hottest.ts`, which
-combines three NOAA sources:
+The home page (`src/app/page.tsx`) shows the hottest or the coldest place, with a toggle (shareable
+as `#coldest`). It's rendered on the server from `src/lib/extremes.ts`, which combines three NOAA
+sources:
 
 1. **RTMA (Real-Time Mesoscale Analysis)**: NOAA's best-estimate temperature map on a 2.5 km grid,
    blending a short-range model with station observations. The CONUS Rapid Update runs every
@@ -29,17 +30,25 @@ combines three NOAA sources:
 3. **NWS API**: names the nearest place to the result (`api.weather.gov/points`).
 
 The hot spot is the hottest US land cell within 15 km of a trusted station that reads at least
-about as hot (within 1 K). Raw RTMA maxima often sit in data voids or on coasts, where the
-analysis reads close to sea temperature; requiring a thermometer keeps the answer tied to a real
-measurement. If MADIS is down, the raw RTMA maximum is shown with a warning.
+about as hot (within 1 K); the cold spot is the mirror image. Raw RTMA extremes often sit in data
+voids, on unmonitored peaks, or on coasts where the analysis reads close to sea temperature;
+requiring a thermometer keeps the answer tied to a real measurement. One refresh computes both.
+
+Coverage is the lower 48 plus Hawaii. Alaska is left out on purpose: it would be the coldest place
+almost every day.
 
 #### Caching (Vercel Hobby)
 The page uses Incremental Static Regeneration (`revalidate = 300`). Visitors always get the cached
 page instantly instead of waiting on the ~15–25 s NOAA/MADIS fetch. Once the page is older than
-5 minutes, the next visit triggers a background refresh, and if NOAA is down the last good page
-keeps being served. After a quiet stretch the first visitor may see an old result; the page shows
-its age and reloads itself once the background refresh lands. The build also runs the pipeline
-once; if NOAA is unreachable then, it renders a placeholder instead of failing the deploy.
+5 minutes, the next visit triggers a background refresh. After a quiet stretch the first visitor
+may see an old result; the page shows its age and reloads itself once the background refresh lands.
+
+If RTMA or MADIS fails for the lower 48 during a refresh (including MADIS briefly serving a
+near-empty table, which happens), the refresh throws and the last good page keeps being served:
+stale but right beats fresh but wrong. A Hawaii failure only drops Hawaii, with a note on the page,
+so a long Hawaii outage can't freeze everything. If the NWS place lookup fails, the page shows
+coordinates instead of a town. Warnings go to the runtime logs. The build also runs the pipeline
+once; there it accepts a degraded answer, or renders a placeholder, rather than failing the deploy.
 
 #### Land mask
 `src/lib/rtma/landmask-data.ts` marks which grid cells count as US land. It's generated from the

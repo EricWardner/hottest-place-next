@@ -27,12 +27,15 @@ const PRODUCTS: Record<RegionName, { label: string; stepMinutes: number; lookbac
   },
 }
 
+export type RawExtreme = { lat: number; lon: number; tempK: number }
+
 export type RtmaAnalysis = {
   region: RegionName
   source: string
   field: GribField
-  /** hottest US land cell, with no other checks */
-  hottest: { lat: number; lon: number; tempK: number }
+  /** hottest and coldest US land cells, with no other checks */
+  hottest: RawExtreme
+  coldest: RawExtreme
   toLatLon(i: number, j: number): [number, number]
   /** grid cell nearest to (lat, lon), or null outside the grid */
   cellAt(lat: number, lon: number): [number, number] | null
@@ -86,24 +89,30 @@ export async function fetchLatestAnalysis(region: RegionName, now = new Date()):
   const proj = makeProjection(field.grid)
 
   // Scan only US land cells
-  let best = -1
+  let hot = -1
+  let cold = -1
   const rows = landRuns(region)
   for (let j = 0; j < rows.length; j++) {
     const row = rows[j]
     for (let r = 0; r < row.length; r += 2) {
       for (let k = j * nx + row[r], end = j * nx + row[r + 1]; k < end; k++) {
-        if (best < 0 || field.values[k] > field.values[best]) best = k
+        if (hot < 0 || field.values[k] > field.values[hot]) hot = k
+        if (cold < 0 || field.values[k] < field.values[cold]) cold = k
       }
     }
   }
-  if (best < 0) throw new Error(`Empty ${region} land mask`)
-  const [lat, lon] = proj.toLatLon(best % nx, Math.floor(best / nx))
+  if (hot < 0) throw new Error(`Empty ${region} land mask`)
+  const rawExtreme = (k: number): RawExtreme => {
+    const [lat, lon] = proj.toLatLon(k % nx, Math.floor(k / nx))
+    return { lat, lon, tempK: field.values[k] }
+  }
 
   return {
     region,
     source: product.label,
     field,
-    hottest: { lat, lon, tempK: field.values[best] },
+    hottest: rawExtreme(hot),
+    coldest: rawExtreme(cold),
     toLatLon: proj.toLatLon,
     cellAt(la, lo) {
       const [fi, fj] = proj.toGrid(la, lo)

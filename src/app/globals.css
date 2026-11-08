@@ -9,3 +9,13 @@
 body {
   background: radial-gradient(#c71784, #eee8aa);
 }
+
+/* set by the inline script in layout.tsx before first paint, then by ModeToggle */
+html[data-mode='cold'] body {
+  background: radial-gradient(#60a5fa, #e0f2fe);
+}
+
+/* #coldest links: the server renders the hot view; keep it hidden until hydration swaps in the cold one */
+html[data-mode='cold'] [data-view='hot'] {
+  visibility: hidden;
+}

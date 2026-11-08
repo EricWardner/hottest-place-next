@@ -1,10 +1,17 @@
 // Shared between the server page and client components. Keep server-only imports out of this file.
+import type { RegionName } from './rtma/grids'
+
+export type Mode = 'hot' | 'cold'
+
+/** +1 when looking for heat, -1 for cold, so "more extreme" is always "larger sign * value". */
+export const SIGN: Record<Mode, number> = { hot: 1, cold: -1 }
 
 type Point = { lat: number; lon: number; tempF: number }
 
-export type HottestPlace = {
-  /** Hottest US land cell in the latest RTMA analysis that a nearby thermometer backs up. */
-  hotspot: Point & {
+/** The hottest or coldest place, with the evidence behind it. */
+export type Extreme = {
+  /** US land cell in the latest RTMA analysis, backed by a nearby thermometer when possible. */
+  spot: Point & {
     /** analysis valid time, ISO 8601 */
     validTime: string
     source: string
@@ -14,10 +21,10 @@ export type HottestPlace = {
     city: string
     state: string
     distanceMi: number
-    /** compass direction from the city to the hot spot, e.g. "WNW" */
+    /** compass direction from the city to the spot, e.g. "WNW" */
     direction: string
   } | null
-  /** The MADIS thermometer backing the hot spot; null if MADIS was unavailable. */
+  /** The MADIS thermometer backing the spot; null if none could. */
   station:
     | (Point & {
         id: string
@@ -29,10 +36,17 @@ export type HottestPlace = {
         analysisTempF: number
       })
     | null
-  /** RTMA's hottest US land cell with no thermometer check (may be a data void or coastal artifact). */
-  analysisMax: Point
-  /** MADIS stations that agreed with the analysis and could back a hot spot. */
+  /** RTMA's most extreme US land cell with no thermometer check (may be a data void or coastal artifact). */
+  analysisExtreme: Point
+}
+
+export type Extremes = {
+  hot: Extreme
+  cold: Extreme
+  /** MADIS stations that agreed with the analysis and could back a spot. */
   stationsUsed: number
+  /** Regions left out of this result because one of their data sources failed. */
+  unavailable: RegionName[]
   warnings: string[]
   /** when this result was computed, ISO 8601 */
   generatedAt: string
