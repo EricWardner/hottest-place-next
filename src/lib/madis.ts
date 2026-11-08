@@ -41,7 +41,6 @@ export async function fetchMadisTemps(box: Box, timeoutMs: number): Promise<Madi
   // MADIS occasionally answers instantly with no data table; retry that once.
   for (let attempt = 1; ; attempt++) {
     const res = await fetch(`${ENDPOINT}?${params}`, {
-      cache: 'no-store',
       signal: AbortSignal.timeout(Math.max(1_000, deadline - Date.now())),
     })
     if (!res.ok) throw new Error(`MADIS HTTP ${res.status}`)

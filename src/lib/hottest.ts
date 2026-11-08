@@ -7,7 +7,7 @@
 //     RTMA maxima can sit in data voids or on coasts where the analysis reads
 //     close to sea temperature; this keeps the answer tied to a measurement.
 //  4. The NWS points API names the nearest place.
-import type { HottestPlace } from './hottest-schema'
+import type { HottestPlace } from './types'
 import { fetchMadisTemps, type Box, type MadisOb } from './madis'
 import { nearestPlace } from './nws'
 import type { RegionName } from './rtma/grids'

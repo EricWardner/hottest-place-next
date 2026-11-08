@@ -14,7 +14,8 @@ https://hottest-place-next.vercel.app/
 
 
 ## How does it work?
-`GET /api/hottest-place` (`src/lib/hottest.ts`) combines three NOAA sources:
+The home page (`src/app/page.tsx`) is rendered on the server from `src/lib/hottest.ts`, which
+combines three NOAA sources:
 
 1. **RTMA (Real-Time Mesoscale Analysis)**: NOAA's best-estimate temperature map on a 2.5 km grid,
    blending a short-range model with station observations. The CONUS Rapid Update runs every
@@ -32,13 +33,21 @@ about as hot (within 1 K). Raw RTMA maxima often sit in data voids or on coasts,
 analysis reads close to sea temperature; requiring a thermometer keeps the answer tied to a real
 measurement. If MADIS is down, the raw RTMA maximum is shown with a warning.
 
-The response is cached at the CDN for 5 minutes with stale-while-revalidate, so visitors don't
-wait on the ~15–25 s MADIS query.
+#### Caching (Vercel Hobby)
+The page uses Incremental Static Regeneration (`revalidate = 300`). Visitors always get the cached
+page instantly instead of waiting on the ~15–25 s NOAA/MADIS fetch. Once the page is older than
+5 minutes, the next visit triggers a background refresh, and if NOAA is down the last good page
+keeps being served. After a quiet stretch the first visitor may see an old result; the page shows
+its age and reloads itself once the background refresh lands. The build also runs the pipeline
+once; if NOAA is unreachable then, it renders a placeholder instead of failing the deploy.
 
 #### Land mask
 `src/lib/rtma/landmask-data.ts` marks which grid cells count as US land. It's generated from the
 Census state boundaries plus RTMA's own terrain field; see `scripts/build-landmask.mts` for how to
-regenerate it. The API errors loudly if NOAA ever changes the grid.
+regenerate it. Rendering errors loudly if NOAA ever changes the grid.
+
+#### Development
+Requires Node 26 (`engines` in `package.json`). `npm run dev`, `npm run build`, `npm run lint`.
 
 #### Data terms
 MADIS mesonet providers ask that you notify the MADIS team before showing their data on a public

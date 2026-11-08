@@ -1,7 +1,6 @@
-'use client'
-import { HottestPlace } from '../lib/hottest-schema'
-
-const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+import type { HottestPlace } from '../lib/types'
+import Freshness from './Freshness'
+import LocalTime from './LocalTime'
 
 export default function HottestPlaceInfo({ data }: { data: HottestPlace }) {
   const { hotspot, place, station, analysisMax } = data
@@ -11,6 +10,12 @@ export default function HottestPlaceInfo({ data }: { data: HottestPlace }) {
       : `${Math.round(place.distanceMi)} mi ${place.direction} of ${place.city}, ${place.state}`
     : `at ${hotspot.lat.toFixed(2)}, ${hotspot.lon.toFixed(2)}`
   const unbackedPeak = station && analysisMax.tempF >= hotspot.tempF + 0.5
+  const asOf = (
+    <>
+      <LocalTime iso={hotspot.validTime} />
+      <Freshness validTime={hotspot.validTime} generatedAt={data.generatedAt} />
+    </>
+  )
 
   return (
     <div className="grid gap-4">
@@ -20,9 +25,9 @@ export default function HottestPlaceInfo({ data }: { data: HottestPlace }) {
       {station ? (
         <>
           <p className="text-xs">
-            The hottest 2.5 km grid cell in the {hotspot.source} analysis ({time(hotspot.validTime)}) that a nearby
-            thermometer backs up: {station.id} ({station.provider}) read {station.tempF.toFixed(1)}&deg;F at{' '}
-            {time(station.obsTime)}, {Math.round(station.distanceMi)} mi away.
+            The hottest 2.5 km grid cell in the {hotspot.source} analysis as of {asOf} that a nearby thermometer
+            backs up: {station.id} ({station.provider}) read {station.tempF.toFixed(1)}&deg;F at{' '}
+            <LocalTime iso={station.obsTime} />, {Math.round(station.distanceMi)} mi away.
           </p>
           {unbackedPeak && (
             <p className="text-xs">
@@ -33,8 +38,8 @@ export default function HottestPlaceInfo({ data }: { data: HottestPlace }) {
         </>
       ) : (
         <p className="text-xs">
-          The hottest 2.5 km grid cell in the {hotspot.source} analysis ({time(hotspot.validTime)}). No thermometer
-          could confirm it right now, so treat it as an estimate.
+          The hottest 2.5 km grid cell in the {hotspot.source} analysis as of {asOf}. No thermometer could confirm
+          it right now, so treat it as an estimate.
         </p>
       )}
     </div>

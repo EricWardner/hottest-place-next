@@ -6,7 +6,6 @@ export type NwsPlace = { city: string; state: string; distanceM: number; bearing
 
 export async function nearestPlace(lat: number, lon: number, timeoutMs: number): Promise<NwsPlace> {
   const res = await fetch(`https://api.weather.gov/points/${lat.toFixed(4)},${lon.toFixed(4)}`, {
-    cache: 'no-store',
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/geo+json' },
     signal: AbortSignal.timeout(timeoutMs),
   })

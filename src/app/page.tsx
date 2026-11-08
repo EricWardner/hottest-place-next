@@ -1,32 +1,32 @@
-'use client'
-import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
-import Loading from './loading'
+import { PHASE_PRODUCTION_BUILD } from 'next/constants'
+import HotspotMap from '../components/HotspotMapClient'
 import HottestPlaceInfo from '../components/HottestPlaceInfo'
-import { HottestPlace, hottestPlaceSchema } from '../lib/hottest-schema'
+import { findHottestPlace } from '../lib/hottest'
+import type { HottestPlace } from '../lib/types'
 
-const HotspotMap = dynamic(() => import('../components/HotspotMap'), { ssr: false })
+// ISR: visitors always get the cached page instantly; when it's older than this,
+// the next request triggers a background regeneration. RTMA updates every 15 minutes.
+// If a regeneration fails, the last good page keeps being served.
+export const revalidate = 300
+// A regeneration downloads ~8 MB from NOAA and can wait on MADIS for up to ~40 s.
+export const maxDuration = 60
 
-export default function Home() {
-  const [data, setData] = useState<HottestPlace>()
-  const [error, setError] = useState<string>()
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch('/api/hottest-place')
-        const body = await res.json()
-        if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`)
-        setData(hottestPlaceSchema.parse(body))
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e))
-      }
-    }
-    fetchData()
-  }, [])
-
-  if (error) return <p className="text-fluid-1">Couldn&apos;t find the hottest place right now ({error}).</p>
-  if (!data) return <Loading />
+export default async function Home() {
+  let data: HottestPlace
+  try {
+    data = await findHottestPlace()
+  } catch (e) {
+    // At runtime, rethrow so ISR keeps serving the last good page. At build time
+    // there is no last good page, and a NOAA outage shouldn't fail the deploy, so
+    // render a placeholder that the first regeneration replaces.
+    if (process.env.NEXT_PHASE !== PHASE_PRODUCTION_BUILD) throw e
+    console.error('Hottest place unavailable at build time:', e)
+    return (
+      <p className="text-fluid-1">
+        NOAA&apos;s data wasn&apos;t reachable when this page was built. Check back in a few minutes.
+      </p>
+    )
+  }
 
   return (
     <>

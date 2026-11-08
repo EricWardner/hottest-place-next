@@ -54,7 +54,7 @@ export async function fetchLatestAnalysis(region: RegionName, now = new Date()):
   const indexes = await Promise.all(
     candidates.map(async (key) => {
       try {
-        const res = await fetch(`${BUCKET}/${key}.idx`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
+        const res = await fetch(`${BUCKET}/${key}.idx`, { signal: AbortSignal.timeout(10_000) })
         return res.ok ? { key, idx: await res.text() } : null
       } catch {
         return null
@@ -73,7 +73,6 @@ export async function fetchLatestAnalysis(region: RegionName, now = new Date()):
   const range = Number.isFinite(next) ? `bytes=${start}-${next - 1}` : `bytes=${start}-`
 
   const res = await fetch(`${BUCKET}/${found.key}`, {
-    cache: 'no-store',
     headers: { Range: range },
     signal: AbortSignal.timeout(30_000),
   })
