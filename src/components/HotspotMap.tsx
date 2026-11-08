@@ -1,4 +1,5 @@
 'use client'
+import 'leaflet/dist/leaflet.css'
 import { CircleMarker, MapContainer, TileLayer, Tooltip } from 'react-leaflet'
 import { HottestPlace } from '../lib/hottest-schema'
 
