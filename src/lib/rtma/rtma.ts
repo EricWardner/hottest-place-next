@@ -57,7 +57,7 @@ export async function fetchLatestAnalysis(region: RegionName, now = new Date()):
   const indexes = await Promise.all(
     candidates.map(async (key) => {
       try {
-        const res = await fetch(`${BUCKET}/${key}.idx`, { signal: AbortSignal.timeout(10_000) })
+        const res = await fetch(`${BUCKET}/${key}.idx`, { signal: AbortSignal.timeout(8_000) })
         return res.ok ? { key, idx: await res.text() } : null
       } catch {
         return null
@@ -77,7 +77,7 @@ export async function fetchLatestAnalysis(region: RegionName, now = new Date()):
 
   const res = await fetch(`${BUCKET}/${found.key}`, {
     headers: { Range: range },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(25_000), // ~6 MB; keeps the refresh under 60 s (see extremes.ts)
   })
   if (res.status !== 206) throw new Error(`RTMA range request failed: HTTP ${res.status} for ${found.key}`)
   const field = decodeGrib2(new Uint8Array(await res.arrayBuffer()))

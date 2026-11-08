@@ -6,7 +6,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 const STALE_MS = 10 * 60_000
 /**
  * When to check for the regenerated page. A typical regeneration takes ~20 s
- * but can run up to ~90 s when MADIS is slow and retries; stops once fresh data arrives.
+ * and at most ~60 s; stops once fresh data arrives.
  */
 const REFRESH_AT_MS = [30_000, 75_000, 150_000]
 

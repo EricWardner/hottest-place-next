@@ -10,9 +10,10 @@ import type { Extremes, Mode } from '../lib/types'
 // the next request triggers a background regeneration. RTMA updates every 15 minutes.
 // If a regeneration fails, the last good page keeps being served.
 export const revalidate = 300
-// A regeneration downloads ~8 MB from NOAA, can wait on MADIS for up to ~72 s
-// (two 35 s attempts), then names both places (8 s). Hobby allows up to 300 s.
-export const maxDuration = 120
+// A regeneration is budgeted to finish in ~50 s (see the time budgets in
+// src/lib/extremes.ts). 60 s is Hobby's limit for projects without Fluid compute;
+// a higher value fails the deploy there.
+export const maxDuration = 60
 
 export default async function Home() {
   // At runtime any source failure throws, so ISR keeps serving the last good page

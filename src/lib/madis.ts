@@ -13,13 +13,23 @@ export type MadisOb = {
 
 export type Box = { south: number; west: number; north: number; east: number }
 
+export type MadisBudget = {
+  /** hard cap for the whole call, retry included */
+  totalMs: number
+  /** cap for the first attempt, so a slow first reply leaves room for a retry */
+  firstAttemptMs: number
+  /** don't bother retrying with less time than this left */
+  minRetryMs: number
+}
+
 /**
  * Latest temperature per station in the past hour, passing all MADIS QC checks.
  * Treats fewer than `minObs` rows as a failure: MADIS sometimes briefly serves an
- * empty or partial table that otherwise looks valid. Any failure is retried once,
- * and each attempt gets its own `attemptTimeoutMs`.
+ * empty or partial table that otherwise looks valid. Any failure is retried once
+ * if the budget allows.
  */
-export async function fetchMadisTemps(box: Box, attemptTimeoutMs: number, minObs = 1): Promise<MadisOb[]> {
+export async function fetchMadisTemps(box: Box, budget: MadisBudget, minObs = 1): Promise<MadisOb[]> {
+  const deadline = Date.now() + budget.totalMs
   const params = new URLSearchParams({
     rdr: '',
     time: '0', // now
@@ -42,8 +52,8 @@ export async function fetchMadisTemps(box: Box, attemptTimeoutMs: number, minObs
     xml: '0', // text (includes lat/lon)
     csvmiss: '0',
   })
-  const attempt = async () => {
-    const res = await fetch(`${ENDPOINT}?${params}`, { signal: AbortSignal.timeout(attemptTimeoutMs) })
+  const attempt = async (timeoutMs: number) => {
+    const res = await fetch(`${ENDPOINT}?${params}`, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) throw new Error(`MADIS HTTP ${res.status}`)
     const text = await res.text()
     if (!/var T\s+total stns/.test(text)) throw new Error('MADIS response had no data table')
@@ -53,15 +63,17 @@ export async function fetchMadisTemps(box: Box, attemptTimeoutMs: number, minObs
   }
 
   try {
-    return await attempt()
+    return await attempt(Math.min(budget.firstAttemptMs, budget.totalMs))
   } catch (first) {
     // Bad replies and timeouts are usually transient. MADIS caches replies by URL
     // for 60 s, bad ones included, so the retry adds a throwaway parameter
     // (verified harmless) to force a fresh query.
-    await new Promise((r) => setTimeout(r, 2_000))
+    await new Promise((r) => setTimeout(r, 1_000))
+    const left = deadline - Date.now()
+    if (left < budget.minRetryMs) throw first
     params.set('_retry', String(Date.now()))
     try {
-      return await attempt()
+      return await attempt(left)
     } catch (second) {
       throw new Error(`${errorMessage(second)} (first attempt: ${errorMessage(first)})`)
     }

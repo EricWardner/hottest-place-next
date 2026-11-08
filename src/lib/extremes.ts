@@ -10,7 +10,7 @@
 //  4. The NWS points API names the nearest place.
 //
 // Alaska is deliberately left out: it would be the coldest place nearly every day.
-import { fetchMadisTemps, type Box, type MadisOb } from './madis'
+import { fetchMadisTemps, type Box, type MadisBudget, type MadisOb } from './madis'
 import { nearestPlace } from './nws'
 import type { RegionName } from './rtma/grids'
 import { fetchLatestAnalysis, type RawExtreme, type RtmaAnalysis } from './rtma/rtma'
@@ -29,8 +29,14 @@ const MADIS_BOXES: Record<RegionName, Box> = {
 }
 /** Fewer observations than this means MADIS served a bad table (a normal CONUS reply has ~20k). */
 const MADIS_MIN_OBS: Record<RegionName, number> = { conus: 1000, hawaii: 10 }
-/** Per attempt; MADIS retries once, so up to ~72 s. See maxDuration in src/app/page.tsx. */
-const MADIS_ATTEMPT_TIMEOUT_MS = 35_000
+/**
+ * Time budgets. A refresh must finish within 60 s: that's both Hobby's function
+ * limit without Fluid compute and Next's per-page build timeout. RTMA (~33 s
+ * worst case) runs alongside MADIS (42 s), then the NWS lookups (6 s) run in
+ * parallel, so the worst case is ~50 s. See maxDuration in src/app/page.tsx.
+ */
+const MADIS_BUDGET: MadisBudget = { totalMs: 42_000, firstAttemptMs: 28_000, minRetryMs: 10_000 }
+const NWS_TIMEOUT_MS = 6_000
 
 const REGIONS: RegionName[] = ['conus', 'hawaii']
 /**
@@ -63,7 +69,7 @@ export async function findExtremes(now = new Date(), { strict = true } = {}): Pr
   // RTMA and MADIS are independent; fetch everything at once.
   const [analyses, madis] = await Promise.all([
     Promise.allSettled(REGIONS.map((r) => fetchLatestAnalysis(r, now))),
-    Promise.allSettled(REGIONS.map((r) => fetchMadisTemps(MADIS_BOXES[r], MADIS_ATTEMPT_TIMEOUT_MS, MADIS_MIN_OBS[r]))),
+    Promise.allSettled(REGIONS.map((r) => fetchMadisTemps(MADIS_BOXES[r], MADIS_BUDGET, MADIS_MIN_OBS[r]))),
   ])
 
   const available: RtmaAnalysis[] = []
@@ -119,7 +125,7 @@ async function describe(
 
   let place: Extreme['place'] = null
   try {
-    const p = await nearestPlace(spot.lat, spot.lon, 8_000)
+    const p = await nearestPlace(spot.lat, spot.lon, NWS_TIMEOUT_MS)
     place = { city: p.city, state: p.state, distanceMi: kmToMi(p.distanceM / 1000), direction: compass(p.bearingDeg) }
   } catch (e) {
     warnings.push(`NWS (${mode}): ${errorMessage(e)}`)
