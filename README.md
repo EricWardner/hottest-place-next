@@ -40,15 +40,18 @@ almost every day.
 #### Caching (Vercel Hobby)
 The page uses Incremental Static Regeneration (`revalidate = 300`). Visitors always get the cached
 page instantly instead of waiting on the ~15–25 s NOAA/MADIS fetch. Once the page is older than
-5 minutes, the next visit triggers a background refresh. After a quiet stretch the first visitor
-may see an old result; the page shows its age and reloads itself once the background refresh lands.
+5 minutes, the next visit triggers a background refresh. Nothing runs on a schedule (Hobby cron
+jobs are daily only), so after a quiet stretch the first visitor may see an old result; the page
+shows its age and swaps in the new data once the background refresh lands. An open tab checks for
+a newer page every 5 minutes while visible, and when you switch back to it.
 
-If RTMA or MADIS fails for the lower 48 during a refresh (including MADIS briefly serving a
-near-empty table, which happens), the refresh throws and the last good page keeps being served:
-stale but right beats fresh but wrong. A Hawaii failure only drops Hawaii, with a note on the page,
-so a long Hawaii outage can't freeze everything. If the NWS place lookup fails, the page shows
-coordinates instead of a town. Warnings go to the runtime logs. The build also runs the pipeline
-once; there it accepts a degraded answer, or renders a placeholder, rather than failing the deploy.
+MADIS is the flaky source (slow replies, empty tables, HTTP 403s). If it fails for the lower 48,
+the refresh still succeeds with RTMA's own extremes, labeled as unconfirmed estimates, rather than
+freezing the page on an old answer. Only missing lower-48 RTMA makes a refresh throw, in which
+case the last good page keeps being served. A Hawaii failure only drops Hawaii, with a note on the
+page. If the NWS place lookup fails, the page shows coordinates instead of a town. Warnings go to
+the runtime logs. The build also runs the pipeline once; if it has no data at all there, it
+renders a placeholder rather than failing the deploy.
 
 #### Land mask
 `src/lib/rtma/landmask-data.ts` marks which grid cells count as US land. It's generated from the

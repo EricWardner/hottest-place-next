@@ -1,6 +1,6 @@
 // Nearest named place for a point, from the NWS API (https://www.weather.gov/documentation/services-web-api).
 // NWS asks clients to identify themselves in the User-Agent.
-const USER_AGENT = 'hottest-place (https://github.com/EricWardner/hottest-place-next)'
+import { USER_AGENT } from './user-agent'
 
 export type NwsPlace = { city: string; state: string; distanceM: number; bearingDeg: number }
 

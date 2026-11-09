@@ -1,6 +1,6 @@
 import { PHASE_PRODUCTION_BUILD } from 'next/constants'
 import ExtremeInfo from '../components/ExtremeInfo'
-import { StaleRefresher } from '../components/Freshness'
+import { AutoRefresh } from '../components/Freshness'
 import HotspotMap from '../components/HotspotMapClient'
 import ModeToggle from '../components/ModeToggle'
 import { findExtremes } from '../lib/extremes'
@@ -16,17 +16,16 @@ export const revalidate = 300
 export const maxDuration = 60
 
 export default async function Home() {
-  // At runtime, losing the lower-48 data throws, so ISR keeps serving the last good
-  // page (stale but right beats fresh but wrong). Smaller gaps still render: a
-  // Hawaii outage drops Hawaii with a note, an NWS failure shows coordinates, and
-  // a spot no thermometer backs is labeled as an estimate (see findExtremes).
-  // At build time there is no last good page and a NOAA hiccup shouldn't fail the
-  // deploy, so accept a degraded answer, or a placeholder if there's no data at
-  // all; the first regeneration replaces it.
+  // findExtremes only throws without lower-48 RTMA. Other gaps still render: no
+  // MADIS means labeled RTMA estimates, a Hawaii outage drops Hawaii with a note,
+  // and an NWS failure shows coordinates. At runtime, rethrow so ISR keeps
+  // serving the last good page. At build time there is no last good page and a
+  // NOAA outage shouldn't fail the deploy, so render a placeholder that the
+  // first regeneration replaces.
   const atBuild = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD
   let data: Extremes
   try {
-    data = await findExtremes(new Date(), { strict: !atBuild })
+    data = await findExtremes()
   } catch (e) {
     if (!atBuild) throw e
     console.error('Hottest place unavailable at build time:', e)
@@ -54,7 +53,7 @@ export default async function Home() {
 
   return (
     <>
-      <StaleRefresher generatedAt={data.generatedAt} />
+      <AutoRefresh generatedAt={data.generatedAt} />
       <ModeToggle hot={view('hot')} cold={view('cold')} />
       <p className="text-xs max-w-prose">
         Data: NOAA/NCEP Real-Time Mesoscale Analysis (RTMA), NOAA MADIS and its mesonet data providers, and

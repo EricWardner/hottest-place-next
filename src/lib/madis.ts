@@ -1,6 +1,7 @@
 // QC-filtered surface temperatures from NOAA MADIS (public tier, no login).
 // https://madis-data.ncep.noaa.gov/public/sfcdumpguest.html
 import { errorMessage } from './errors'
+import { USER_AGENT } from './user-agent'
 
 const ENDPOINT = 'https://madis-data.ncep.noaa.gov/madisPublic1/cgi-bin/madisXmlPublicDir'
 
@@ -56,7 +57,10 @@ export async function fetchMadisTemps(box: Box, budget: MadisBudget, minObs = 1)
     csvmiss: '0',
   })
   const attempt = async (timeoutMs: number) => {
-    const res = await fetch(`${ENDPOINT}?${params}`, { signal: AbortSignal.timeout(timeoutMs) })
+    const res = await fetch(`${ENDPOINT}?${params}`, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: AbortSignal.timeout(timeoutMs),
+    })
     if (res.status >= 400 && res.status < 500) throw new PermanentError(`MADIS HTTP ${res.status}`)
     if (!res.ok) throw new Error(`MADIS HTTP ${res.status}`)
     const text = await res.text()

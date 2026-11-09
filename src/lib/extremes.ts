@@ -45,9 +45,9 @@ const NWS_TIMEOUT_MS = 6_000
 
 const REGIONS: RegionName[] = ['conus', 'hawaii']
 /**
- * In strict mode, losing one of these fails the whole refresh. Hawaii only
- * drops out (with a note on the page), so a long Hawaii outage can't freeze
- * the lower-48 answers.
+ * Without these there's no meaningful "US" answer. Losing their RTMA fails the
+ * refresh; losing their MADIS stations switches every region to unconfirmed
+ * RTMA estimates. Hawaii just drops out (with a note on the page).
  */
 const REQUIRED_REGIONS: RegionName[] = ['conus']
 
@@ -64,12 +64,14 @@ const kmToMi = (km: number) => Math.round(km * 0.621371 * 10) / 10
 
 /**
  * Normally a region needs both RTMA and MADIS; one missing either is left out
- * (noted on the page). With `strict` (runtime), losing a required region
- * throws instead: ISR then keeps serving the last good page and retries, since
- * a Hawaii-only "hottest place in the US" would be fresh but wrong. NWS
- * failures only cost the place name.
+ * (noted on the page). MADIS is the flaky one (slow, empty tables, 403s), so
+ * losing the lower 48's stations doesn't fail the refresh: every region falls
+ * back to unconfirmed RTMA extremes, which the page labels as estimates. That
+ * beats freezing on an hours-old answer, and dropping the lower 48 would make
+ * e.g. Hawaii "the coldest place in the US". Only missing lower-48 RTMA throws,
+ * so ISR keeps the last good page. NWS failures only cost the place name.
  */
-export async function findExtremes(now = new Date(), { strict = true } = {}): Promise<Extremes> {
+export async function findExtremes(now = new Date()): Promise<Extremes> {
   const warnings: string[] = []
 
   // RTMA and MADIS are independent; fetch everything at once.
@@ -88,14 +90,9 @@ export async function findExtremes(now = new Date(), { strict = true } = {}): Pr
     else warnings.push(`MADIS ${region}: ${errorMessage(m.reason)}`)
   })
 
-  const requiredMissing = REQUIRED_REGIONS.filter((r) => !rtma[r] || !stations[r])
-  if (strict && requiredMissing.length) {
-    throw new Error(`Data unavailable for ${requiredMissing.join(', ')}: ${warnings.join('; ')}`)
-  }
-  // Build-time fallback: if a required region has RTMA but no stations, dropping
-  // it would make e.g. Hawaii "the coldest place in the US". Show unconfirmed RTMA
-  // extremes for every region instead.
-  const unconfirmed = requiredMissing.some((r) => rtma[r] && !stations[r])
+  const missingRtma = REQUIRED_REGIONS.filter((r) => !rtma[r])
+  if (missingRtma.length) throw new Error(`No RTMA for ${missingRtma.join(', ')}: ${warnings.join('; ')}`)
+  const unconfirmed = REQUIRED_REGIONS.some((r) => !stations[r])
 
   const available: RtmaAnalysis[] = []
   const unavailable: RegionName[] = []
@@ -118,8 +115,6 @@ export async function findExtremes(now = new Date(), { strict = true } = {}): Pr
       if (c && (!b || moreExtreme(mode, c.tempK, b.tempK))) best[mode] = c
     }
   }
-  if (available.length === 0) throw new Error(`No data available: ${warnings.join('; ')}`)
-
   const [hot, cold] = await Promise.all(
     (['hot', 'cold'] as const).map((mode) => describe(mode, best[mode], available, warnings)),
   )

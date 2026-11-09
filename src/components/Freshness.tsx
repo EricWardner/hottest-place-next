@@ -9,6 +9,8 @@ const STALE_MS = 10 * 60_000
  * and at most ~60 s; stops once fresh data arrives.
  */
 const REFRESH_AT_MS = [30_000, 75_000, 150_000]
+/** How often an open, visible tab asks for a newer page (matches revalidate in page.tsx). */
+const POLL_MS = 5 * 60_000
 
 // Snapshot is the current 30-second bucket, so it's stable between ticks.
 const TICK_MS = 30_000
@@ -27,17 +29,39 @@ export function Age({ iso }: { iso: string }) {
 }
 
 /**
- * If the page came out of the ISR cache stale (e.g. the first visit after a
- * quiet stretch), picks up the fresh copy once the background regeneration
- * has had time to finish. Renders nothing.
+ * Keeps the page current without reloads. Renders nothing.
+ * - If the page came out of the ISR cache stale (e.g. the first visit after a
+ *   quiet stretch), that visit started a background regeneration; check back
+ *   until it lands.
+ * - In an open tab, ask for a newer page every POLL_MS while visible (and on
+ *   returning to the tab), then check back the same way.
+ * router.refresh() is served from the ISR cache, so polling is cheap; it only
+ * triggers a regeneration when the cached page is older than `revalidate`.
+ * New data changes generatedAt, which resets everything here.
  */
-export function StaleRefresher({ generatedAt }: { generatedAt: string }) {
+export function AutoRefresh({ generatedAt }: { generatedAt: string }) {
   const router = useRouter()
   useEffect(() => {
-    if (Date.now() - Date.parse(generatedAt) < STALE_MS) return
-    // A refresh that brings new data changes generatedAt, which clears the remaining checks.
-    const ids = REFRESH_AT_MS.map((ms) => setTimeout(() => router.refresh(), ms))
-    return () => ids.forEach(clearTimeout)
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const checkBack = () => {
+      for (const ms of REFRESH_AT_MS) timers.push(setTimeout(() => router.refresh(), ms))
+    }
+    if (Date.now() - Date.parse(generatedAt) > STALE_MS) checkBack()
+
+    let lastPoll = Date.now()
+    const poll = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastPoll < POLL_MS) return
+      lastPoll = Date.now()
+      router.refresh()
+      checkBack()
+    }
+    const id = setInterval(poll, 30_000)
+    document.addEventListener('visibilitychange', poll)
+    return () => {
+      timers.forEach(clearTimeout)
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', poll)
+    }
   }, [generatedAt, router])
   return null
 }
